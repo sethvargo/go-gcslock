@@ -1,0 +1,90 @@
+# Copyright 2023 The Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'test'
+
+on:
+  push:
+    branches:
+      - 'main'
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - 'main'
+  workflow_dispatch:
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  modules:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - uses: 'actions/checkout@v3'
+
+      - uses: 'actions/setup-go@v3'
+        with:
+          go-version: '1.20'
+
+      - name: 'Check modules'
+        shell: 'bash'
+        working-directory: '${{ inputs.directory }}'
+        run: |-
+          go mod tidy
+
+          if [ -n "$(git status -s -uall)" ]; then
+            echo "::error title=Go module changes::Detected go module changes"
+            git -c color.ui=always diff
+            exit 1
+          fi
+
+  lint:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - uses: 'actions/checkout@v3'
+
+      - uses: 'actions/setup-go@v3'
+        with:
+          go-version: '1.20'
+
+      - name: 'Lint'
+        uses: 'golangci/golangci-lint-action@v3'
+
+  test:
+    runs-on: 'ubuntu-latest'
+
+    steps:
+    - uses: 'actions/checkout@v3'
+
+    - uses: 'actions/setup-go@v3'
+      with:
+        go-version: '1.20'
+
+    - uses: 'google-github-actions/auth@v1'
+      with:
+        workload_identity_provider: 'projects/361288302104/locations/global/workloadIdentityPools/github-actions/providers/sethvargo-go-gcs-lock'
+        service_account: 'github-actions@go-gcslock-test.iam.gserviceaccount.com'
+
+    - name: 'Test'
+      env:
+        TEST_BUCKET: 'go-gcslock-test'
+      run: |-
+        go test \
+          -count=1 \
+          -race \
+          -timeout=10m \
+          -shuffle=on \
+          ./...
