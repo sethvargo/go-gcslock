@@ -64,14 +64,17 @@ func newLockHeldError(nbf int64) *LockHeldError {
 	}
 }
 
+// Error implements the error interface.
 func (e *LockHeldError) Error() string {
 	return "lock held until " + e.NotBefore().Format(time.RFC3339)
 }
 
+// NotBefore returns the UTC Unix timestamp of when the lock expires.
 func (e *LockHeldError) NotBefore() time.Time {
 	return time.Unix(e.nbf, 0).UTC()
 }
 
+// Is implements the error comparison interface.
 func (e *LockHeldError) Is(err error) bool {
 	var terr *LockHeldError
 	return errors.As(err, &terr)
