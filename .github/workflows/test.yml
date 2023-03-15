@@ -64,6 +64,10 @@ jobs:
         uses: 'golangci/golangci-lint-action@v3'
 
   test:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
     runs-on: 'ubuntu-latest'
 
     steps:
