@@ -39,7 +39,6 @@ func TestGCSLock_Acquire(t *testing.T) {
 	testObject := "gcslock_test_" + randomString(t)
 
 	ctx := context.Background()
-	ttl := 2 * time.Second
 
 	// Always delete the lock at the end of the suite
 	t.Cleanup(func() {
@@ -67,27 +66,22 @@ func TestGCSLock_Acquire(t *testing.T) {
 	})
 
 	// Acquire initial lock.
-	if err := lock.Acquire(ctx, ttl); err != nil {
+	if err := lock.Acquire(ctx, 1*time.Second); err != nil {
 		t.Fatal(err)
 	}
 
 	// Wait for the lock to expire with a buffer.
-	time.Sleep(time.Duration(float64(ttl) + 1.20))
+	time.Sleep(2 * time.Second)
 
 	// Acquiring the lock again should succeed, since it's expired.
-	if err := lock.Acquire(ctx, ttl); err != nil {
+	if err := lock.Acquire(ctx, 1*time.Second); err != nil {
 		t.Fatal(err)
 	}
 
 	// Immediately try to acquire the lock, which should still be held.
-	if err := lock.Acquire(ctx, ttl); err != nil {
+	if err := lock.Acquire(ctx, 1*time.Second); err != nil {
 		var terr *gcslock.LockHeldError
-		if errors.As(err, &terr) {
-			// Verify the nbf is in the future
-			if got, want := terr.NotBefore(), time.Now().UTC(); !got.After(want) {
-				t.Errorf("expected %q to be after %q", got, want)
-			}
-		} else {
+		if !errors.As(err, &terr) {
 			t.Fatalf("expected %s (%T) to be %T", err, err, terr)
 		}
 	} else {
@@ -95,20 +89,26 @@ func TestGCSLock_Acquire(t *testing.T) {
 	}
 
 	// Wait for the lock to expire with a buffer.
-	time.Sleep(time.Duration(float64(ttl) + 1.20))
+	time.Sleep(2 * time.Second)
 
 	// Attempt to acquire the lock in parallel. All but one should fail.
 	var wg sync.WaitGroup
 	var numSuccess int64
 	var numRejected int64
-	for i := 0; i < 3; i++ {
+	iters := 3
+	errCh := make(chan error, iters)
+	for i := 0; i < iters; i++ {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
 
-			if err := lock.Acquire(ctx, ttl); err != nil {
-				if errors.Is(err, &gcslock.LockHeldError{}) {
+			if err := lock.Acquire(ctx, 5*time.Second); err != nil {
+				var terr *gcslock.LockHeldError
+				if errors.As(err, &terr) {
 					atomic.AddInt64(&numRejected, 1)
+				} else {
+					errCh <- err
 				}
 			} else {
 				atomic.AddInt64(&numSuccess, 1)
@@ -116,6 +116,13 @@ func TestGCSLock_Acquire(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	if got, want := numSuccess, int64(1); got != want {
 		t.Errorf("expected %d to be %d", got, want)

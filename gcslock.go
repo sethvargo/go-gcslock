@@ -72,6 +72,14 @@ func (e *LockHeldError) NotBefore() time.Time {
 	return time.Unix(e.nbf, 0).UTC()
 }
 
+func (e *LockHeldError) Is(err error) bool {
+	terr, ok := err.(*LockHeldError)
+	if !ok {
+		return false
+	}
+	return terr.nbf == e.nbf
+}
+
 // GCSLock represents a remote forward-looking lock in Google Cloud Storage.
 type GCSLock struct {
 	client *storage.Client
