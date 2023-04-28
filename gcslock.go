@@ -147,7 +147,7 @@ func (l *GCSLock) Acquire(ctx context.Context, ttl time.Duration) error {
 }
 
 // Close terminates the client connection. It does not delete the lock.
-func (l *GCSLock) Close(ctx context.Context) error {
+func (l *GCSLock) Close(_ context.Context) error {
 	if err := l.client.Close(); err != nil {
 		return fmt.Errorf("failed to close storage client: %w", err)
 	}
