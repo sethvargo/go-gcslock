@@ -51,9 +51,9 @@ const (
 	notBeforeKey = "nbf"
 )
 
-// GCSLocker is the interface that defines how to manage a lock with GCS.
-type GCSLocker interface {
-	New(ctx context.Context, bucket, object string, opts ...option.ClientOption) (*GCSLock, error)
+// Lockable is the interface that defines how to manage a lock with Google Cloud
+// Storage.
+type Lockable interface {
 	Acquire(ctx context.Context, ttl time.Duration) error
 	Close(ctx context.Context) error
 }
@@ -87,8 +87,11 @@ func (e *LockHeldError) Is(err error) bool {
 	return errors.As(err, &terr)
 }
 
-// GCSLock represents a remote forward-looking lock in Google Cloud Storage.
-type GCSLock struct {
+// Verify that the Lock implements the interface.
+var _ Lockable = (*Lock)(nil)
+
+// Lock represents a remote forward-looking lock in Google Cloud Storage.
+type Lock struct {
 	client *storage.Client
 	bucket string
 	object string
@@ -98,7 +101,7 @@ type GCSLock struct {
 
 // New creates a new distributed locking handler on the specific object in
 // Google Cloud. It does create the lock until Acquire is called.
-func New(ctx context.Context, bucket, object string, opts ...option.ClientOption) (*GCSLock, error) {
+func New(ctx context.Context, bucket, object string, opts ...option.ClientOption) (*Lock, error) {
 	// Append our user agent, but make it first so that subsequent options can
 	// override it.
 	opts = append([]option.ClientOption{option.WithUserAgent(userAgent)}, opts...)
@@ -113,7 +116,7 @@ func New(ctx context.Context, bucket, object string, opts ...option.ClientOption
 	// lock attempts.
 	retryPolicy := retry.WithMaxRetries(5, retry.NewFibonacci(50*time.Millisecond))
 
-	return &GCSLock{
+	return &Lock{
 		client:      client,
 		bucket:      bucket,
 		object:      object,
@@ -134,7 +137,7 @@ func New(ctx context.Context, bucket, object string, opts ...option.ClientOption
 //
 // It automatically retries transient upstream API errors, but returns
 // immediately for errors that are irrecoverable.
-func (l *GCSLock) Acquire(ctx context.Context, ttl time.Duration) error {
+func (l *Lock) Acquire(ctx context.Context, ttl time.Duration) error {
 	now := time.Now().UTC()
 
 	if err := retry.Do(ctx, l.retryPolicy, func(ctx context.Context) error {
@@ -147,7 +150,7 @@ func (l *GCSLock) Acquire(ctx context.Context, ttl time.Duration) error {
 }
 
 // Close terminates the client connection. It does not delete the lock.
-func (l *GCSLock) Close(_ context.Context) error {
+func (l *Lock) Close(_ context.Context) error {
 	if err := l.client.Close(); err != nil {
 		return fmt.Errorf("failed to close storage client: %w", err)
 	}
@@ -156,7 +159,7 @@ func (l *GCSLock) Close(_ context.Context) error {
 
 // tryAcquire is the internal implementation of [Acquire] that actually creates
 // and updates the lock.
-func (l *GCSLock) tryAcquire(ctx context.Context, now time.Time, ttl time.Duration) error {
+func (l *Lock) tryAcquire(ctx context.Context, now time.Time, ttl time.Duration) error {
 	now = now.Truncate(time.Second)
 	ttl = ttl.Truncate(time.Second)
 	objHandle := l.client.Bucket(l.bucket).Object(l.object)
