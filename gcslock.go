@@ -53,7 +53,6 @@ const (
 
 // GCSLocker is the interface that defines how to manage a lock with GCS.
 type GCSLocker interface {
-	New(ctx context.Context, bucket, object string, opts ...option.ClientOption) (*GCSLock, error)
 	Acquire(ctx context.Context, ttl time.Duration) error
 	Close(ctx context.Context) error
 }
