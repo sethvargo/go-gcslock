@@ -34,12 +34,12 @@ func TestLockHeldError_Error(t *testing.T) {
 	}{
 		{
 			name: "zero",
-			err:  newLockHeldError(0),
+			err:  NewLockHeldError(0),
 			exp:  "lock held until 1970-01-01T00:00:00Z",
 		},
 		{
 			name: "timestamp",
-			err:  newLockHeldError(1902902494),
+			err:  NewLockHeldError(1902902494),
 			exp:  "lock held until 2030-04-20T08:01:34Z",
 		},
 	}
@@ -67,12 +67,12 @@ func TestLockHeldError_NotBefore(t *testing.T) {
 	}{
 		{
 			name: "zero",
-			err:  newLockHeldError(0),
+			err:  NewLockHeldError(0),
 			exp:  "1970-01-01T00:00:00Z",
 		},
 		{
 			name: "timestamp",
-			err:  newLockHeldError(1902902494),
+			err:  NewLockHeldError(1902902494),
 			exp:  "2030-04-20T08:01:34Z",
 		},
 	}
