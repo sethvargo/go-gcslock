@@ -65,7 +65,8 @@ type LockHeldError struct {
 	nbf int64
 }
 
-func newLockHeldError(nbf int64) *LockHeldError {
+// NewLockHeldError creates an instance of a LockHeldError.
+func NewLockHeldError(nbf int64) *LockHeldError {
 	return &LockHeldError{
 		nbf: nbf,
 	}
@@ -183,7 +184,7 @@ func (l *Lock) tryAcquire(ctx context.Context, now time.Time, ttl time.Duration)
 		}
 
 		if nbfUnix >= now.Unix() {
-			return newLockHeldError(nbfUnix)
+			return NewLockHeldError(nbfUnix)
 		}
 	}
 
