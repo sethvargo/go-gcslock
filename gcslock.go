@@ -105,6 +105,7 @@ type lockOpts struct {
 	gcsClientOpts []option.ClientOption
 }
 
+// LockOption overrides the default options for the lock.
 type LockOption func(*lockOpts)
 
 // WithRetryPolicy sets the retry policy for the lock. This is used to retry
