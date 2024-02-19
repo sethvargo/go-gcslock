@@ -100,15 +100,49 @@ type Lock struct {
 	retryPolicy retry.Backoff
 }
 
+type lockOpts struct {
+	retryPolicy   retry.Backoff
+	gcsClientOpts []option.ClientOption
+}
+
+type LockOption func(*lockOpts)
+
+// WithRetryPolicy sets the retry policy for the lock. This is used to retry
+// transient errors when trying to acquire the lock.
+func WithRetryPolicy(policy retry.Backoff) LockOption {
+	return func(o *lockOpts) {
+		o.retryPolicy = policy
+	}
+}
+
+// WithGCSClientOptions sets the Google Cloud Storage client options. This is
+// used to configure the underlying client, such as setting credentials or
+// customizing the HTTP client.
+func WithGCSClientOptions(opts ...option.ClientOption) LockOption {
+	return func(o *lockOpts) {
+		o.gcsClientOpts = append(o.gcsClientOpts, opts...)
+	}
+}
+
+var defaultLockOpts = lockOpts{
+	retryPolicy: retry.WithMaxRetries(5, retry.NewFibonacci(50*time.Millisecond)),
+	gcsClientOpts: []option.ClientOption{
+		// Append our user agent, but make it first so that subsequent options can
+		// override it.
+		option.WithUserAgent(userAgent),
+	},
+}
+
 // New creates a new distributed locking handler on the specific object in
 // Google Cloud. It does create the lock until Acquire is called.
-func New(ctx context.Context, bucket, object string, opts ...option.ClientOption) (*Lock, error) {
-	// Append our user agent, but make it first so that subsequent options can
-	// override it.
-	opts = append([]option.ClientOption{option.WithUserAgent(userAgent)}, opts...)
+func New(ctx context.Context, bucket, object string, opts ...LockOption) (*Lock, error) {
+	options := &defaultLockOpts
+	for _, o := range opts {
+		o(options)
+	}
 
 	// Create the Google Cloud Storage client.
-	client, err := storage.NewClient(ctx, opts...)
+	client, err := storage.NewClient(ctx, options.gcsClientOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create storage client: %w", err)
 	}
