@@ -41,7 +41,6 @@ linters:
     - 'bidichk'
     - 'bodyclose'
     - 'containedctx'
-    - 'depguard'
     - 'dupword'
     - 'durationcheck'
     - 'errcheck'
@@ -52,6 +51,7 @@ linters:
     - 'exhaustive'
     - 'exportloopref'
     - 'forcetypeassert'
+    - 'gci'
     - 'gocheckcompilerdirectives'
     - 'godot'
     - 'gofmt'
@@ -64,18 +64,21 @@ linters:
     - 'govet'
     - 'importas'
     - 'ineffassign'
-    # - 'ireturn' # does not handle generics yet: https://github.com/butuzov/ireturn/issues/37
     - 'loggercheck'
     - 'makezero'
+    - 'mirror'
     - 'misspell'
+    - 'nilerr'
     - 'noctx'
     - 'nolintlint'
     - 'nosprintfhostport'
     - 'paralleltest'
     - 'prealloc'
     - 'predeclared'
-    - 'revive'
+    - 'protogetter'
     - 'rowserrcheck'
+    - 'sloglint'
+    - 'spancheck'
     - 'sqlclosecheck'
     - 'staticcheck'
     - 'stylecheck'
@@ -86,19 +89,11 @@ linters:
     - 'unused'
     - 'wastedassign'
     - 'whitespace'
-    - 'wrapcheck'
 
 issues:
   # default: []
   exclude:
     - '^G102:' # gosec: we have to bind to all ifaces in Cloud Run services
-
-  # default: []
-  exclude-rules:
-    # Exclude test files from certain linters
-    - path: '_test.go'
-      linters:
-        - 'wrapcheck'
 
   # default: 50
   max-issues-per-linter: 0
@@ -106,16 +101,30 @@ issues:
   # default: 3
   max-same-issues: 0
 
-linters-settings:
+  gci:
+    sections:
+      - 'standard'
+      - 'default'
+      - 'prefix(github.com/sethvargo)'
+      - 'blank'
+      - 'dot'
+
+    skip-generated: true
+    custom-order: true
+
   gofumpt:
     # default: false
     extra-rules: true
 
-  wrapcheck:
-    ignoreSigRegexps:
-      - '.ErrorOrNil\('
-      - 'retry\.RetryableError\('
-      - 'status\.Error\('
+  sloglint:
+    # default: false
+    context-only: true
+    # default: false
+    static-msg: false
+    # default: '' (snake, kebab, camel, pascal)
+    key-naming-case: 'snake'
+    # default: false
+    args-on-sep-lines: true
 
 severity:
   # default: ''
